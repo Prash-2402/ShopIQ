@@ -1,5 +1,6 @@
 import { getBillsHistory } from './billing';
 import { getLocalCache } from './products';
+import { getInventory, InventoryItem } from './inventory';
 
 export interface LiveIntelligence {
   peakHour: string;
@@ -244,3 +245,86 @@ export const fetchLiveIntelligence = async (phone: string): Promise<LiveIntellig
     smartAdvice,
   };
 };
+
+// ---------------------------------------------------------------------------
+// Profit stats
+// ---------------------------------------------------------------------------
+
+export interface ProfitStats {
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  profitMarginPercent: number;
+  /** Inventory items with stock > 0 that haven't appeared in any bill in the last 30 days. */
+  deadStockItems: InventoryItem[];
+}
+
+/**
+ * Compute 30-day profit figures and identify dead stock.
+ * Cost is sourced from inventory (case-insensitive name match).
+ * For items not in inventory, we assume a 30% margin: cost = sell * 0.7.
+ */
+export const fetchProfitStats = async (phone: string): Promise<ProfitStats> => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [allBills, inventory] = await Promise.all([
+    getBillsHistory(phone),
+    getInventory(phone),
+  ]);
+
+  // Filter to last 30 days
+  const recentBills = allBills.filter(
+    (b) => new Date(b.createdAt) >= thirtyDaysAgo,
+  );
+
+  // Build a lowercase-name → costPrice lookup from inventory
+  const costMap = new Map<string, number>(
+    inventory.map((item) => [item.name.trim().toLowerCase(), item.costPrice]),
+  );
+
+  // Build set of item names that appeared in recent bills (for dead-stock check)
+  const soldItemNames = new Set<string>();
+
+  let totalRevenue = 0;
+  let totalCost = 0;
+
+  for (const bill of recentBills) {
+    totalRevenue += bill.total;
+
+    for (const item of bill.items) {
+      const key = item.name.trim().toLowerCase();
+      soldItemNames.add(key);
+
+      const inventoryCost = costMap.get(key);
+      const unitCost =
+        inventoryCost !== undefined
+          ? inventoryCost
+          : item.price * 0.7; // 30% margin assumption for untracked items
+
+      totalCost += unitCost * item.quantity;
+    }
+  }
+
+  const totalProfit = totalRevenue - totalCost;
+  const profitMarginPercent =
+    totalRevenue > 0
+      ? parseFloat(((totalProfit / totalRevenue) * 100).toFixed(1))
+      : 0;
+
+  // Dead stock: items with stock > 0 that weren't sold in the last 30 days
+  const deadStockItems = inventory.filter(
+    (item) =>
+      item.quantity > 0 &&
+      !soldItemNames.has(item.name.trim().toLowerCase()),
+  );
+
+  return {
+    totalRevenue,
+    totalCost,
+    totalProfit,
+    profitMarginPercent,
+    deadStockItems,
+  };
+};
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +6,22 @@ import { useAuthStore } from '../../store/authStore';
 import { getBillsHistory, syncPendingBills, LocalBill } from '../../services/supabase/billing';
 import { fetchLiveIntelligence, LiveIntelligence } from '../../services/supabase/analytics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLowStockItems, useExpiringItems } from '../../hooks/useInventory';
+import { useCustomers } from '../../hooks/useUdhar';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const storeName = useAuthStore((state) => state.storeName) || 'My Store';
   const phone = useAuthStore((state) => state.phone) || '';
+
+  const { data: lowStockItems = [] } = useLowStockItems(phone);
+  const { data: expiringItems = [] } = useExpiringItems(phone);
+  const { data: customers = [] } = useCustomers(phone);
+
+  const totalUdharOutstanding = useMemo(
+    () => customers.reduce((sum, c) => sum + Math.max(0, c.balance), 0),
+    [customers],
+  );
 
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -195,6 +206,38 @@ export default function DashboardScreen() {
           </View>
         )}
 
+        {/* Stock Alert Banners — shown between Live Intelligence and Quick Actions */}
+        {(lowStockItems.length > 0 || expiringItems.length > 0) && (
+          <View className="mb-6">
+            <Text className="text-white text-lg font-bold mb-4">Stock Alerts</Text>
+
+            {lowStockItems.length > 0 && (
+              <TouchableOpacity
+                onPress={() => router.push('/stock')}
+                className="bg-red-950/30 border border-red-900/50 rounded-3xl p-5 mb-4"
+              >
+                <Text className="text-red-400 font-extrabold text-sm">
+                  📦 {lowStockItems.length} item{lowStockItems.length > 1 ? 's' : ''} low on stock
+                </Text>
+                <Text className="text-gray-400 text-xs mt-1">
+                  {lowStockItems.slice(0, 3).map((i) => i.name).join(' • ')}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {expiringItems.length > 0 && (
+              <TouchableOpacity
+                onPress={() => router.push('/stock')}
+                className="bg-amber-950/30 border border-amber-900/50 rounded-3xl p-5 mb-4"
+              >
+                <Text className="text-amber-400 font-extrabold text-sm">
+                  🕐 {expiringItems.length} item{expiringItems.length > 1 ? 's' : ''} expiring soon
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View className="mb-8">
           <Text className="text-white text-lg font-bold mb-4">Quick Actions</Text>
@@ -211,18 +254,31 @@ export default function DashboardScreen() {
           <View className="flex-row justify-between">
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/history')}
-              className="bg-[#13192B] border border-gray-800 rounded-3xl p-5 w-[48%] items-center justify-center shadow-md"
+              className="bg-[#13192B] border border-gray-800 rounded-3xl p-4 w-[31%] items-center justify-center shadow-md"
             >
               <Text className="text-3xl mb-2">📜</Text>
-              <Text className="text-white font-bold">View History</Text>
+              <Text className="text-white font-bold text-xs text-center">History</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => router.push('/udhar')}
+              className="bg-[#13192B] border border-gray-800 rounded-3xl p-4 w-[31%] items-center justify-center shadow-md"
+            >
+              <Text className="text-3xl mb-2">🤝</Text>
+              <Text className="text-white font-bold text-xs text-center">Udhar</Text>
+              {totalUdharOutstanding > 0 && (
+                <Text className="text-red-400 text-xs font-bold mt-0.5">
+                  ₹{totalUdharOutstanding.toLocaleString('en-IN')}
+                </Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/analytics')}
-              className="bg-[#13192B] border border-gray-800 rounded-3xl p-5 w-[48%] items-center justify-center shadow-md"
+              className="bg-[#13192B] border border-gray-800 rounded-3xl p-4 w-[31%] items-center justify-center shadow-md"
             >
               <Text className="text-3xl mb-2">📈</Text>
-              <Text className="text-white font-bold">Analytics</Text>
+              <Text className="text-white font-bold text-xs text-center">Analytics</Text>
             </TouchableOpacity>
           </View>
         </View>

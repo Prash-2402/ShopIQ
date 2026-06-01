@@ -3,8 +3,10 @@ import {
   fetchOverviewStats, 
   fetchMonthlyRevenueTrend, 
   fetchWeeklyRevenueTrend, 
-  fetchTopSellingProducts 
+  fetchTopSellingProducts,
+  fetchProfitStats,
 } from '../services/supabase/analytics';
+import { generateDemandPredictions } from '../services/ai/demandPrediction';
 
 export const useAnalyticsStats = (phone: string) => {
   return useQuery({
@@ -41,3 +43,23 @@ export const useTopProducts = (phone: string) => {
     staleTime: 5 * 60 * 1000,
   });
 };
+
+export const useDemandPredictions = (phone: string) => {
+  return useQuery({
+    queryKey: ['demandPredictions', phone],
+    queryFn: () => generateDemandPredictions(phone),
+    enabled: !!phone,
+    staleTime: 10 * 60 * 1000,
+  });
+};
+
+export const useProfitStats = (phone: string) => {
+  return useQuery({
+    queryKey: ['profitStats', phone],
+    queryFn: () => fetchProfitStats(phone),
+    enabled: !!phone,
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
+

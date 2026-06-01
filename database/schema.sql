@@ -52,3 +52,49 @@ create table inventory_items (
   created_at timestamp default now(),
   updated_at timestamp default now()
 );
+
+-- Create customers table (udhar manager)
+create table customers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  name text not null,
+  phone text,
+  created_at timestamp default now()
+);
+
+-- Create udhar_transactions table
+-- type 'credit'    = money the customer owes the store (shopkeeper gave goods on credit)
+-- type 'repayment' = customer paid back some or all of the outstanding amount
+create table udhar_transactions (
+  id uuid primary key default gen_random_uuid(),
+  customer_id uuid references customers(id) on delete cascade,
+  amount numeric not null,
+  type text not null check (type in ('credit', 'repayment')),
+  note text,
+  created_at timestamp default now()
+);
+
+-- Create suppliers table
+create table suppliers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  name text not null,
+  phone text,
+  products_supplied text[],
+  notes text,
+  reliability_score integer default 100 check (reliability_score between 0 and 100),
+  created_at timestamp default now()
+);
+
+-- Create supplier_invoices table
+create table supplier_invoices (
+  id uuid primary key default gen_random_uuid(),
+  supplier_id uuid references suppliers(id) on delete cascade,
+  amount numeric not null,
+  due_date date,
+  paid boolean default false,
+  notes text,
+  created_at timestamp default now()
+);
+
+

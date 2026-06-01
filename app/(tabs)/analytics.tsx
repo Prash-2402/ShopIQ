@@ -10,8 +10,11 @@ import {
   useAnalyticsStats, 
   useMonthlyRevenue, 
   useWeeklyRevenue, 
-  useTopProducts 
+  useTopProducts,
+  useDemandPredictions,
+  useProfitStats,
 } from '../../hooks/useAnalytics';
+import { DemandPrediction } from '../../services/ai/demandPrediction';
 
 // Loading Skeleton component for overview cards
 function StatSkeleton() {
@@ -56,12 +59,16 @@ export default function AnalyticsScreen() {
   const { data: monthlyData, isLoading: monthlyLoading, refetch: refetchMonthly } = useMonthlyRevenue(phone);
   const { data: weeklyData, isLoading: weeklyLoading, refetch: refetchWeekly } = useWeeklyRevenue(phone);
   const { data: topProducts, isLoading: productsLoading, refetch: refetchProducts } = useTopProducts(phone);
+  const { data: predictions = [], isLoading: predictionsLoading, refetch: refetchPredictions } = useDemandPredictions(phone);
+  const { data: profitStats, isLoading: profitLoading, refetch: refetchProfit } = useProfitStats(phone);
 
   const handleRefreshAll = () => {
     refetchStats();
     refetchMonthly();
     refetchWeekly();
     refetchProducts();
+    refetchPredictions();
+    refetchProfit();
   };
 
   // 2. Memoize monthly chart data conversion to prevent unwanted re-renders
@@ -163,6 +170,69 @@ export default function AnalyticsScreen() {
           </View>
         ) : null}
 
+        {/* ── Profit Overview ──────────────────────────────────────── */}
+        {profitLoading ? (
+          <StatSkeleton />
+        ) : profitStats ? (
+          <>
+            {/* Profit card */}
+            <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-5 mb-6">
+              <Text className="text-white font-bold text-base mb-4">30-Day Profit Overview</Text>
+
+              {/* Revenue row */}
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-gray-400 text-sm">Revenue</Text>
+                <Text className="text-white font-extrabold">
+                  ₹{profitStats.totalRevenue.toLocaleString('en-IN')}
+                </Text>
+              </View>
+
+              {/* Cost row */}
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-gray-400 text-sm">Est. Cost</Text>
+                <Text className="text-gray-400 font-semibold">
+                  ₹{profitStats.totalCost.toLocaleString('en-IN')}
+                </Text>
+              </View>
+
+              {/* Profit row */}
+              <View className="flex-row justify-between items-center">
+                <Text className="text-gray-400 text-sm">Profit</Text>
+                <Text
+                  className={`font-extrabold ${
+                    profitStats.totalProfit >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}
+                >
+                  ₹{profitStats.totalProfit.toLocaleString('en-IN')}
+                </Text>
+              </View>
+
+              {/* Margin badge */}
+              <View className="bg-indigo-950 px-3 py-1 rounded-xl self-start mt-3">
+                <Text className="text-indigo-300 text-xs font-bold">
+                  {profitStats.profitMarginPercent}% margin
+                </Text>
+              </View>
+            </View>
+
+            {/* Dead stock card */}
+            {profitStats.deadStockItems.length > 0 ? (
+              <View className="bg-amber-950/30 border border-amber-900/40 rounded-3xl p-5 mb-6">
+                <Text className="text-amber-400 font-bold text-sm">
+                  📦 Dead Stock ({profitStats.deadStockItems.length} item{profitStats.deadStockItems.length > 1 ? 's' : ''})
+                </Text>
+                <Text className="text-gray-400 text-xs mt-0.5">Items unsold for 30+ days</Text>
+                <Text className="text-gray-500 text-xs mt-1">
+                  {profitStats.deadStockItems
+                    .slice(0, 5)
+                    .map((i) => i.name)
+                    .join(' • ')}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
         {/* Weekly Revenue Chart Section */}
         {weeklyLoading ? (
           <ChartSkeleton />
@@ -231,6 +301,63 @@ export default function AnalyticsScreen() {
               </View>
             )}
           </View>
+        </View>
+
+        {/* ── Demand Predictions ──────────────────────────────────────── */}
+        <View className="mb-6">
+          <Text className="text-white text-lg font-bold mb-4">🔮 Next Week Predictions</Text>
+
+          {predictionsLoading ? (
+            <ChartSkeleton />
+          ) : predictions.length === 0 ? (
+            <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-6">
+              <Text className="text-gray-500 text-sm text-center py-6">
+                📊 Not enough sales data yet. Keep creating bills to unlock AI predictions.
+              </Text>
+            </View>
+          ) : (
+            predictions.map((pred: DemandPrediction, idx: number) => {
+              const trendStyle = pred.trend === 'rising'
+                ? { badge: 'bg-emerald-950', text: 'text-emerald-400', label: '↑ RISING' }
+                : pred.trend === 'falling'
+                ? { badge: 'bg-red-950', text: 'text-red-400', label: '↓ FALLING' }
+                : { badge: 'bg-gray-800', text: 'text-gray-400', label: '→ STABLE' };
+
+              return (
+                <View
+                  key={`${pred.itemName}-${idx}`}
+                  className="bg-[#13192B] border border-gray-800 rounded-2xl p-4 mb-3 flex-row justify-between items-start"
+                >
+                  {/* Left */}
+                  <View className="flex-1 mr-3">
+                    <Text className="text-white font-bold text-sm" numberOfLines={1}>
+                      {pred.itemName}
+                    </Text>
+                    <Text className="text-gray-400 text-xs mt-0.5" numberOfLines={2}>
+                      {pred.reasoning}
+                    </Text>
+                    {pred.currentStock !== null ? (
+                      <Text className="text-gray-500 text-xs mt-1">
+                        In stock: {pred.currentStock} units
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {/* Right */}
+                  <View className="items-end">
+                    <View className={`${trendStyle.badge} px-2 py-0.5 rounded mb-1`}>
+                      <Text className={`${trendStyle.text} text-[9px] font-black`}>
+                        {trendStyle.label}
+                      </Text>
+                    </View>
+                    <Text className="text-white font-extrabold text-base">
+                      {pred.predictedQuantity} units
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -40,11 +40,31 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="stock"
+        options={{
+          title: 'Stock',
+          href: '/stock',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>📦</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="analytics"
         options={{
           title: 'Analytics',
           tabBarIcon: ({ color }) => (
             <Text style={{ color, fontSize: 20 }}>📈</Text>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="udhar"
+        options={{
+          title: 'Udhar',
+          href: '/udhar',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ color, fontSize: 20 }}>🤝</Text>
           ),
         }}
       />
