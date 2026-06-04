@@ -98,3 +98,14 @@ create table supplier_invoices (
 );
 
 
+-- Create online_orders table
+create table online_orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  customer_name text not null,
+  customer_phone text,
+  items jsonb not null,
+  total numeric not null,
+  status text not null default 'pending' check (status in ('pending', 'fulfilled', 'cancelled')),
+  created_at timestamp default now()
+);

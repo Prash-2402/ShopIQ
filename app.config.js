@@ -11,8 +11,10 @@ export default {
     userInterfaceStyle: 'light',
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'com.anonymous.kiranaaibilling',
     },
     android: {
+      package: 'com.anonymous.kiranaaibilling',
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/android-icon-foreground.png',

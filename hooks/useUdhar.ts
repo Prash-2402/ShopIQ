@@ -6,8 +6,10 @@ import {
   getCustomerById,
   getCustomers,
   getTransactionHistory,
+  getCustomerLoyaltyStats,
   Customer,
   UdharTransaction,
+  CustomerLoyaltyStats,
 } from '../services/supabase/udhar';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,15 @@ export const useTransactionHistory = (customerId: string) => {
     queryFn: () => getTransactionHistory(customerId),
     enabled: !!customerId,
     staleTime: 1 * 60 * 1000,
+  });
+};
+
+export const useCustomerLoyaltyStats = (phone: string) => {
+  return useQuery<CustomerLoyaltyStats>({
+    queryKey: ['loyaltyStats', phone],
+    queryFn: () => getCustomerLoyaltyStats(phone),
+    enabled: !!phone,
+    staleTime: 10 * 60 * 1000,
   });
 };
 

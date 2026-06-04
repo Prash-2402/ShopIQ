@@ -17,6 +17,8 @@ export interface Customer {
   lastActivityAt: string;
   /** Days since lastActivityAt, computed on read. 0 if activity was today. */
   daysSinceActivity: number;
+  visitCount: number;
+  totalSpend: number;
 }
 
 export interface UdharTransaction {
@@ -84,6 +86,10 @@ function mapCustomer(
 ): Customer {
   const balance = computeBalance(transactions);
 
+  const totalSpend = transactions
+    .filter(t => t.type === 'credit')
+    .reduce((acc, t) => acc + parseFloat(String(t.amount)), 0);
+
   // Most recent transaction timestamp, or fall back to customer creation date.
   const lastActivityAt =
     transactions.length > 0
@@ -101,6 +107,8 @@ function mapCustomer(
     balance,
     lastActivityAt,
     daysSinceActivity: daysSince(lastActivityAt),
+    visitCount: transactions.length,
+    totalSpend,
   };
 }
 

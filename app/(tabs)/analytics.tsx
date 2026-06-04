@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BarChart } from 'react-native-gifted-charts';
 import { FlashList } from '@shopify/flash-list';
@@ -14,6 +14,8 @@ import {
   useDemandPredictions,
   useProfitStats,
 } from '../../hooks/useAnalytics';
+import { useCustomerLoyaltyStats } from '../../hooks/useUdhar';
+import { useCreditScore } from '../../hooks/useAnalytics';
 import { DemandPrediction } from '../../services/ai/demandPrediction';
 
 // Loading Skeleton component for overview cards
@@ -61,6 +63,8 @@ export default function AnalyticsScreen() {
   const { data: topProducts, isLoading: productsLoading, refetch: refetchProducts } = useTopProducts(phone);
   const { data: predictions = [], isLoading: predictionsLoading, refetch: refetchPredictions } = useDemandPredictions(phone);
   const { data: profitStats, isLoading: profitLoading, refetch: refetchProfit } = useProfitStats(phone);
+  const { data: loyaltyStats, isLoading: loyaltyLoading, refetch: refetchLoyalty } = useCustomerLoyaltyStats(phone);
+  const { data: creditScore, isLoading: creditLoading, refetch: refetchCredit } = useCreditScore(phone);
 
   const handleRefreshAll = () => {
     refetchStats();
@@ -69,6 +73,8 @@ export default function AnalyticsScreen() {
     refetchProducts();
     refetchPredictions();
     refetchProfit();
+    refetchLoyalty();
+    refetchCredit();
   };
 
   // 2. Memoize monthly chart data conversion to prevent unwanted re-renders
@@ -357,6 +363,134 @@ export default function AnalyticsScreen() {
                 </View>
               );
             })
+          )}
+        </View>
+
+        {/* ── Customer Loyalty ──────────────────────────────────────── */}
+        <View className="mb-6">
+          <Text className="text-white text-lg font-bold mb-4">👑 Customer Loyalty</Text>
+          
+          {loyaltyLoading ? (
+            <StatSkeleton />
+          ) : loyaltyStats ? (
+            <>
+              {/* Top 5 Regulars */}
+              {loyaltyStats.topCustomers.length > 0 && (
+                <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-5 mb-6 shadow-sm">
+                  <Text className="text-white font-bold text-base mb-4">Top 5 Regulars</Text>
+                  {loyaltyStats.topCustomers.map((cust, idx) => (
+                    <View key={`${cust.name}-${idx}`} className="flex-row items-center mb-3 last:mb-0">
+                      <View className="bg-indigo-950 w-6 h-6 rounded-lg items-center justify-center mr-3">
+                        <Text className="text-indigo-400 font-bold text-[10px]">#{idx + 1}</Text>
+                      </View>
+                      <Text className="text-white font-semibold text-sm flex-1" numberOfLines={1}>{cust.name}</Text>
+                      <Text className="text-emerald-400 font-extrabold text-sm text-right">₹{cust.totalSpend.toLocaleString('en-IN')} spend</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Churn Risk */}
+              {loyaltyStats.churnRisk.length > 0 && (
+                <View className="bg-red-950/30 border border-red-900/40 rounded-3xl p-5 mb-6 shadow-sm">
+                  <Text className="text-red-400 font-bold text-sm mb-3">⚠️ {loyaltyStats.churnRisk.length} customer(s) at churn risk</Text>
+                  {loyaltyStats.churnRisk.slice(0, 5).map((cust, idx) => (
+                    <View key={`${cust.name}-churn-${idx}`} className="flex-row items-center justify-between mb-2 last:mb-0">
+                      <Text className="text-gray-400 text-xs flex-1" numberOfLines={1}>
+                        {cust.name} — {cust.daysSinceLastVisit} days inactive
+                      </Text>
+                      {cust.phone && (
+                        <TouchableOpacity 
+                          onPress={() => Linking.openURL(`https://wa.me/${cust.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Namaste ${cust.name}ji, humein aapki yaad aayi! Kabhi dukaan ki taraf aaiye.`)}`)}
+                          className="bg-emerald-600/20 px-2 py-1 rounded ml-2"
+                        >
+                          <Text className="text-emerald-400 text-[10px] font-bold">WhatsApp</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* New vs Returning */}
+              <View className="flex-row justify-between">
+                <View className="flex-1 bg-indigo-950 border border-indigo-900/50 rounded-2xl p-4 mr-2 items-center">
+                  <Text className="text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-1">New</Text>
+                  <Text className="text-indigo-300 text-2xl font-black">{loyaltyStats.newVsReturningRatio.newCount}</Text>
+                </View>
+                <View className="flex-1 bg-emerald-950 border border-emerald-900/50 rounded-2xl p-4 ml-2 items-center">
+                  <Text className="text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-1">Returning</Text>
+                  <Text className="text-emerald-300 text-2xl font-black">{loyaltyStats.newVsReturningRatio.returningCount}</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-6">
+              <Text className="text-gray-500 text-sm text-center py-6">
+                Not enough customer data yet. Start adding Udhar customers!
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* ── Credit Score ──────────────────────────────────────── */}
+        <View className="mb-6">
+          <Text className="text-white text-lg font-bold mb-4">🏆 ShopIQ Credit Score</Text>
+          
+          {creditLoading ? (
+            <StatSkeleton />
+          ) : creditScore ? (
+            <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-6 mb-6 shadow-sm">
+              <View className={`w-24 h-24 rounded-full border-4 items-center justify-center mx-auto mb-4 ${
+                creditScore.grade === 'A' ? 'border-emerald-500 bg-emerald-950/30' :
+                creditScore.grade === 'B' ? 'border-indigo-500 bg-indigo-950/30' :
+                creditScore.grade === 'C' ? 'border-amber-500 bg-amber-950/30' :
+                'border-red-500 bg-red-950/30'
+              }`}>
+                <Text className={`text-3xl font-extrabold ${
+                  creditScore.grade === 'A' ? 'text-emerald-400' :
+                  creditScore.grade === 'B' ? 'text-indigo-400' :
+                  creditScore.grade === 'C' ? 'text-amber-400' :
+                  'text-red-400'
+                }`}>{creditScore.score}</Text>
+                <Text className={`text-lg font-bold ${
+                  creditScore.grade === 'A' ? 'text-emerald-400' :
+                  creditScore.grade === 'B' ? 'text-indigo-400' :
+                  creditScore.grade === 'C' ? 'text-amber-400' :
+                  'text-red-400'
+                }`}>Grade {creditScore.grade}</Text>
+              </View>
+
+              <Text className="text-gray-400 text-sm text-center mt-2 leading-5 mb-6">
+                {creditScore.summary}
+              </Text>
+
+              {[
+                { label: 'Revenue Consistency', points: creditScore.breakdown.revenueConsistency, max: 30 },
+                { label: 'Bill Volume', points: creditScore.breakdown.billVolume, max: 25 },
+                { label: 'Inventory Management', points: creditScore.breakdown.inventoryManagement, max: 25 },
+                { label: 'Udhar Repayment Rate', points: creditScore.breakdown.udharRepaymentRate, max: 20 },
+              ].map((item, idx) => (
+                <View key={idx} className="mb-4 last:mb-0">
+                  <View className="flex-row justify-between mb-1">
+                    <Text className="text-white font-semibold text-sm">{item.label}</Text>
+                    <Text className="text-white font-semibold text-sm">{item.points} / {item.max}</Text>
+                  </View>
+                  <View className="h-1.5 rounded-full bg-gray-800 mt-1 overflow-hidden">
+                    <View 
+                      className="bg-indigo-500 h-full rounded-full" 
+                      style={{ width: `${(item.points / item.max) * 100}%` }}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+             <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-6">
+              <Text className="text-gray-500 text-sm text-center py-6">
+                Score unavailable. Create more bills and udhar to build credit.
+              </Text>
+            </View>
           )}
         </View>
       </ScrollView>

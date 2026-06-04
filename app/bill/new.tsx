@@ -7,6 +7,9 @@ import { useBillStore } from '../../store/billStore';
 import { useAuthStore } from '../../store/authStore';
 import { createBill } from '../../services/supabase/billing';
 import { getLocalCache, CachedProduct } from '../../services/supabase/products';
+import VoiceInputButton from '../../components/VoiceInputButton';
+import { VoiceIntent } from '../../services/ai/voiceIntent';
+import { useToastStore } from '../../store/toastStore';
 
 export default function NewBillScreen() {
   const router = useRouter();
@@ -16,6 +19,42 @@ export default function NewBillScreen() {
   const [manualPrice, setManualPrice] = useState('');
   const [cachedProducts, setCachedProducts] = useState<CachedProduct[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<CachedProduct[]>([]);
+  const { showToast } = useToastStore();
+
+  const handleIntentParsed = (intent: VoiceIntent) => {
+    if (intent.type === 'ADD_STOCK' && intent.itemName) {
+      Alert.alert(
+        "Voice: Stock Update",
+        `Add ${intent.quantity || 1} ${intent.unit || 'units'} of ${intent.itemName} to inventory?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Confirm", 
+            onPress: () => router.push({
+              pathname: '/stock/add',
+              params: {
+                name: intent.itemName,
+                quantity: intent.quantity,
+                unit: intent.unit
+              }
+            })
+          }
+        ]
+      );
+    } else if (intent.type === 'RECORD_SALE' && intent.itemName) {
+      addItem({
+        id: Math.random().toString(36).substring(7),
+        name: intent.itemName,
+        price: 0,
+        quantity: intent.quantity || 1
+      });
+      showToast(`Added ${intent.itemName} to bill`, "success");
+    } else if (intent.type === 'UNKNOWN') {
+      showToast("Could not understand command. Try again.", "warning");
+    } else {
+      showToast("Command understood. Go to the right screen.", "info");
+    }
+  };
 
   useEffect(() => {
     const loadCache = async () => {
@@ -101,15 +140,16 @@ export default function NewBillScreen() {
         </View>
 
         {/* Scan Actions */}
-        <View className="flex-row justify-between mb-6">
+        <View className="flex-row justify-between mb-6 items-center">
           <TouchableOpacity
             onPress={() => router.push('/bill/scanner')}
             disabled={checkoutMutation.isPending}
-            className="flex-1 bg-indigo-600 rounded-2xl py-4 items-center justify-center flex-row shadow-md shadow-indigo-500/20 mr-2"
+            className="flex-1 bg-indigo-600 rounded-2xl py-4 items-center justify-center flex-row shadow-md shadow-indigo-500/20 mr-4"
           >
             <Text className="text-xl mr-2">📷</Text>
             <Text className="text-white font-extrabold text-sm">Scan Barcode / AI</Text>
           </TouchableOpacity>
+          <VoiceInputButton onIntentParsed={handleIntentParsed} />
         </View>
 
         {/* Items List */}

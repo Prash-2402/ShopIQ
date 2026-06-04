@@ -7,6 +7,7 @@ import {
   fetchProfitStats,
 } from '../services/supabase/analytics';
 import { generateDemandPredictions } from '../services/ai/demandPrediction';
+import { generateCreditScore } from '../services/ai/creditScore';
 
 export const useAnalyticsStats = (phone: string) => {
   return useQuery({

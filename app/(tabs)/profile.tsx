@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Share } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
+import { getStoreShareLink } from '../../services/supabase/onlineStore';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -10,6 +11,13 @@ export default function ProfileScreen() {
   const handleLogout = () => {
     logout();
     router.replace('/(auth)/login');
+  };
+
+  const handleItemPress = (label: string) => {
+    if (label === 'My Online Store & Share Link' && phone && storeName) {
+      const link = getStoreShareLink(phone, storeName);
+      Share.share({ message: `Order from my store: ${link}` });
+    }
   };
 
   return (
@@ -33,12 +41,17 @@ export default function ProfileScreen() {
         {/* Settings Group */}
         <View className="bg-[#13192B] border border-gray-800 rounded-3xl p-4 mb-6 shadow-sm">
           {[
+            { label: 'My Online Store & Share Link', icon: '🌐' },
             { label: 'Edit Store Name', icon: '📝' },
             { label: 'Bill Template Settings', icon: '📄' },
             { label: 'GSTIN & Tax Configuration', icon: '💼' },
             { label: 'Notification Settings', icon: '🔔' },
           ].map((item, idx) => (
-            <TouchableOpacity key={idx} className="flex-row justify-between items-center py-4 border-b border-gray-800/50 last:border-b-0">
+            <TouchableOpacity 
+              key={idx} 
+              onPress={() => handleItemPress(item.label)}
+              className="flex-row justify-between items-center py-4 border-b border-gray-800/50 last:border-b-0"
+            >
               <View className="flex-row items-center">
                 <Text className="text-xl mr-3">{item.icon}</Text>
                 <Text className="text-white font-semibold text-base">{item.label}</Text>
